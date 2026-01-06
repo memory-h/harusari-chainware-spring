@@ -2,8 +2,8 @@ package com.harusari.chainware.config.security;
 
 import com.harusari.chainware.auth.jwt.JwtAuthenticationFilter;
 import com.harusari.chainware.auth.jwt.JwtTokenProvider;
-import com.harusari.chainware.auth.jwt.RestAccessDeniedHandler;
-import com.harusari.chainware.auth.jwt.RestAuthenticationEntryPoint;
+import com.harusari.chainware.exception.auth.jwt.RestAccessDeniedHandler;
+import com.harusari.chainware.exception.auth.jwt.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
