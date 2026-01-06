@@ -2,9 +2,7 @@ package com.harusari.chainware.auth.service;
 
 import com.harusari.chainware.auth.model.CustomUserDetails;
 import com.harusari.chainware.exception.auth.MemberNotFoundException;
-import com.harusari.chainware.member.command.domain.aggregate.Authority;
-import com.harusari.chainware.member.command.domain.aggregate.Member;
-import com.harusari.chainware.member.command.domain.repository.AuthorityCommandRepository;
+import com.harusari.chainware.member.query.dto.MemberDetailDTO;
 import com.harusari.chainware.member.query.repository.MemberQueryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,16 +17,13 @@ import static com.harusari.chainware.exception.auth.AuthErrorCode.MEMBER_NOT_FOU
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final MemberQueryRepository memberQueryRepository;
-    private final AuthorityCommandRepository authorityCommandRepository;
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        Member member = memberQueryRepository.findActiveMemberByEmail(email)
+        MemberDetailDTO memberDetailDto = memberQueryRepository.findMemberDetailDtoByEmail(email)
                 .orElseThrow(() -> new MemberNotFoundException(MEMBER_NOT_FOUND_EXCEPTION));
 
-        Authority authority = authorityCommandRepository.findByAuthorityId(member.getAuthorityId());
-
-        return new CustomUserDetails(member.getMemberId(), member.getEmail(), authority.getAuthorityName());
+        return new CustomUserDetails(memberDetailDto.memberId(), memberDetailDto.email(), memberDetailDto.authorityName());
     }
 
 }

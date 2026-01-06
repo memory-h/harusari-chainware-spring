@@ -2,6 +2,7 @@ package com.harusari.chainware.member.query.repository;
 
 import com.harusari.chainware.member.command.domain.aggregate.Member;
 import com.harusari.chainware.member.command.domain.aggregate.MemberAuthorityType;
+import com.harusari.chainware.member.query.dto.MemberDetailDTO;
 import com.harusari.chainware.member.query.dto.request.MemberSearchRequest;
 import com.harusari.chainware.member.query.dto.response.LoginHistoryResponse;
 import com.harusari.chainware.member.query.dto.response.MemberSearchDetailResponse;
@@ -149,6 +150,21 @@ public class MemberQueryRepositoryImpl implements MemberQueryRepositoryCustom {
         long total = Optional.ofNullable(result).orElse(TOTAL_DEFAULT_VALUE);
 
         return new PageImpl<>(contents, pageable, total);
+    }
+
+    @Override
+    public Optional<MemberDetailDTO> findMemberDetailDtoByEmail(String email) {
+        return Optional.ofNullable(
+                queryFactory
+                        .select(Projections.constructor(MemberDetailDTO.class,
+                                member.memberId, member.email, member.name, member.phoneNumber,
+                                member.position, authority.authorityName, authority.authorityLabelKr
+                        ))
+                        .from(member)
+                        .join(authority).on(member.authorityId.eq(authority.authorityId))
+                        .where(member.isDeleted.eq(false))
+                        .fetchOne()
+        );
     }
 
     private BooleanExpression emailEq(String email) {

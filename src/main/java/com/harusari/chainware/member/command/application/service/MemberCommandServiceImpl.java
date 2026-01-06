@@ -116,7 +116,7 @@ public class MemberCommandServiceImpl implements MemberCommandService {
 
     @Override
     public void updateMemberInfo(Long memberId, UpdateMemberRequest updateMemberRequest) {
-        Member member = memberCommandRepository.findMemberByMemberId(memberId)
+        Member member = memberCommandRepository.findByMemberId(memberId)
                 .orElseThrow(() -> new MemberNotFoundException(MEMBER_NOT_FOUND_EXCEPTION));
 
         Authority authority = authorityCommandRepository.findByAuthorityName(updateMemberRequest.authorityName());
@@ -126,7 +126,7 @@ public class MemberCommandServiceImpl implements MemberCommandService {
 
     @Override
     public void updateMyInfo(Long memberId, UpdateMyInfoRequest updateMyInfoRequest) {
-        Member member = memberCommandRepository.findMemberByMemberId(memberId)
+        Member member = memberCommandRepository.findByMemberId(memberId)
                 .orElseThrow(() -> new MemberNotFoundException(MEMBER_NOT_FOUND_EXCEPTION));
 
         member.updateMyInfo(updateMyInfoRequest);
@@ -134,7 +134,7 @@ public class MemberCommandServiceImpl implements MemberCommandService {
 
     @Override
     public void deleteMemberRequest(Long memberId) {
-        Member member = memberCommandRepository.findMemberByMemberId(memberId)
+        Member member = memberCommandRepository.findByMemberId(memberId)
                 .orElseThrow(() -> new MemberNotFoundException(MEMBER_NOT_FOUND_EXCEPTION));
 
         member.softDelete();
