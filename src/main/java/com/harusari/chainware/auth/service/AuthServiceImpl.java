@@ -1,6 +1,5 @@
 package com.harusari.chainware.auth.service;
 
-import com.harusari.chainware.auth.dto.RefreshTokenDTO;
 import com.harusari.chainware.auth.dto.request.LoginRequest;
 import com.harusari.chainware.auth.dto.response.TokenResponse;
 import com.harusari.chainware.auth.jwt.JwtTokenProvider;
@@ -20,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.util.Date;
 
 import static com.harusari.chainware.exception.auth.AuthErrorCode.*;
 
@@ -38,7 +36,7 @@ public class AuthServiceImpl implements AuthService {
     private final MemberQueryRepository memberQueryRepository;
     private final AuthorityCommandRepository authorityCommandRepository;
     private final LoginHistoryCommandRepository loginHistoryCommandRepository;
-    private final RedisTemplate<String, RefreshTokenDTO> refreshTokenRedisTemplate;
+    private final RedisTemplate<String, String> redisTemplate;
 
     @Transactional
     @Override
@@ -47,34 +45,25 @@ public class AuthServiceImpl implements AuthService {
         Authority authority = loadAuthority(member.getAuthorityId());
 
         TokenResponse tokenResponse = generateTokens(member, authority);
-        storeRefreshToken(member.getEmail(), tokenResponse.refreshToken());
-
         saveLoginHistory(member, httpServletRequest);
 
         return tokenResponse;
     }
 
     @Override
-    public TokenResponse refreshToken(String providedRefreshToken) {
-        jwtTokenProvider.validateToken(providedRefreshToken);
-        String email = jwtTokenProvider.getEmailFromJWT(providedRefreshToken);
+    public void logout(String providedRefreshToken) {
+        String email = validateAndGetEmailFromRefreshToken(providedRefreshToken);
+        redisTemplate.delete(email);
+    }
 
-        RefreshTokenDTO storedRefreshToken = getStoredRefreshToken(email);
-        validateRefreshToken(providedRefreshToken, storedRefreshToken);
+    @Override
+    public TokenResponse refreshToken(String providedRefreshToken) {
+        String email = validateAndGetEmailFromRefreshToken(providedRefreshToken);
 
         Member member = findMemberByEmail(email);
         Authority authority = loadAuthority(member.getAuthorityId());
 
-        TokenResponse tokenResponse = generateTokens(member, authority);
-        storeRefreshToken(email, tokenResponse.refreshToken());
-        return tokenResponse;
-    }
-
-    @Override
-    public void logout(String refreshToken) {
-        jwtTokenProvider.validateToken(refreshToken);
-        String email = jwtTokenProvider.getEmailFromJWT(refreshToken);
-        refreshTokenRedisTemplate.delete(email);
+        return generateTokens(member, authority);
     }
 
     private Member findAndValidateMember(LoginRequest loginRequest) {
@@ -97,6 +86,9 @@ public class AuthServiceImpl implements AuthService {
     private TokenResponse generateTokens(Member member, Authority authority) {
         String accessToken = jwtTokenProvider.createToken(member.getEmail(), authority.getAuthorityName());
         String refreshToken = jwtTokenProvider.createRefreshToken(member.getEmail(), authority.getAuthorityName());
+
+        storeRefreshToken(member.getEmail(), refreshToken);
+
         return TokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -104,32 +96,32 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void storeRefreshToken(String email, String refreshToken) {
-        RefreshTokenDTO refreshTokenDTO = RefreshTokenDTO.builder()
-                .email(email)
-                .refreshToken(refreshToken)
-                .expiryDate(new Date(System.currentTimeMillis() + jwtTokenProvider.getRefreshExpiration()))
-                .build();
-
-        refreshTokenRedisTemplate.opsForValue().set(
-                email, refreshTokenDTO, Duration.ofDays(jwtTokenProvider.getRefreshExpiration())
+        redisTemplate.opsForValue().set(
+                email, refreshToken, Duration.ofMillis(jwtTokenProvider.getRefreshExpiration())
         );
     }
 
-    private RefreshTokenDTO getStoredRefreshToken(String email) {
-        return refreshTokenRedisTemplate.opsForValue().get(email);
+    private String validateAndGetEmailFromRefreshToken(String providedRefreshToken) {
+        jwtTokenProvider.validateToken(providedRefreshToken); // RefreshToken 유효성 검사
+        String email = jwtTokenProvider.getEmailFromJWT(providedRefreshToken);
+
+        String storedRefreshToken = getStoredRefreshToken(email); // Redis에 저장된 RefreshToken 조회
+        validateRefreshToken(providedRefreshToken, storedRefreshToken); // 넘어온 리프레시 토큰과 Redis에서 조회한 리프레시 토큰 일치 확인
+
+        return email;
     }
 
-    private void validateRefreshToken(String providedRefreshToken, RefreshTokenDTO storedRefreshToken) {
+    private String getStoredRefreshToken(String email) {
+        return redisTemplate.opsForValue().get(email);
+    }
+
+    private void validateRefreshToken(String providedRefreshToken, String storedRefreshToken) {
         if (storedRefreshToken == null) {
             throw new RefreshTokenNotFoundException(REFRESH_TOKEN_NOT_FOUND_EXCEPTION);
         }
 
-        if (!storedRefreshToken.refreshToken().equals(providedRefreshToken)) {
+        if (!storedRefreshToken.equals(providedRefreshToken)) {
             throw new RefreshTokenMismatchException(REFRESH_TOKEN_MISMATCH_EXCEPTION);
-        }
-
-        if (storedRefreshToken.expiryDate().before(new Date())) {
-            throw new RefreshTokenExpiredException(REFRESH_TOKEN_EXPIRED_EXCEPTION);
         }
     }
 

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 import static com.harusari.chainware.exception.auth.AuthErrorCode.*;
 
@@ -68,6 +69,20 @@ public class JwtTokenProvider {
 
     public long getRefreshExpiration() {
         return jwtRefreshExpiration;
+    }
+
+    /**
+     * Refresh Token의 유효 기간을 "초(seconds)" 단위로 반환한다.
+     *
+     * JWT Refresh Token의 만료 시간은 내부적으로 밀리초(ms) 단위로 관리되지만,
+     * HTTP 쿠키의 Max-Age 속성은 초 단위를 사용하므로 변환이 필요하다.
+     *
+     * 이 메서드는 컨트롤러 계층에서 쿠키 생성 시 사용된다.
+     *
+     * @return refresh token 쿠키의 maxAge 값 (seconds)
+     */
+    public long getRefreshTokenMaxAgeSeconds() {
+        return TimeUnit.MILLISECONDS.toSeconds(jwtRefreshExpiration);
     }
 
     public boolean validateToken(String token) {

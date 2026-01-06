@@ -3,6 +3,7 @@ package com.harusari.chainware.auth.controller;
 import com.harusari.chainware.auth.dto.request.LoginRequest;
 import com.harusari.chainware.auth.dto.response.AccessTokenResponse;
 import com.harusari.chainware.auth.dto.response.TokenResponse;
+import com.harusari.chainware.auth.jwt.JwtTokenProvider;
 import com.harusari.chainware.auth.service.AuthService;
 import com.harusari.chainware.common.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,10 +29,9 @@ import java.time.Duration;
 public class AuthController {
 
     private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
-    private static final String COOKIE_PATH = "/";
+    private static final String COOKIE_PATH = "/api/v1/auth";
+    private static final int COOKIE_DELETE_MAX_AGE = 0;
     private static final boolean HTTP_ONLY = true;
-    private static final long REFRESH_TOKEN_EXPIRATION_DAYS = 7L;
-    private static final long COOKIE_DELETE_MAX_AGE = 0L;
 
     @Value("${app.cookie.secure:true}")
     private boolean secure;
@@ -40,6 +40,7 @@ public class AuthController {
     private String sameSite;
 
     private final AuthService authService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Operation(summary = "로그인", description = "아이디와 비밀번호를 이용해 로그인을 수행하고 JWT 토큰을 발급합니다.")
     @ApiResponses({
@@ -63,7 +64,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @Parameter(description = "리프레시 토큰 요청", required = true)
-            @CookieValue(name = "refreshToken", required = false) String refreshToken
+            @CookieValue(name = REFRESH_TOKEN_COOKIE_NAME) String refreshToken
     ) {
         authService.logout(refreshToken);
         ResponseCookie deleteCookie = createDeleteRefreshTokenCookie();
@@ -80,7 +81,7 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AccessTokenResponse>> refresh(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "리프레시 토큰 요청", required = true)
-            @CookieValue(name = "refreshToken", required = false) String refreshToken
+            @CookieValue(name = REFRESH_TOKEN_COOKIE_NAME) String refreshToken
     ) {
         TokenResponse tokenResponse = authService.refreshToken(refreshToken);
 
@@ -107,7 +108,7 @@ public class AuthController {
                 .httpOnly(HTTP_ONLY)
                 .secure(secure)
                 .path(COOKIE_PATH)
-                .maxAge(Duration.ofDays(REFRESH_TOKEN_EXPIRATION_DAYS))
+                .maxAge(Duration.ofSeconds(jwtTokenProvider.getRefreshTokenMaxAgeSeconds()))
                 .sameSite(sameSite)
                 .build();
     }
